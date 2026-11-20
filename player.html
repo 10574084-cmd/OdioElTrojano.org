@@ -81,10 +81,12 @@
         if (now - lastMoveAt < 300) return;
         lastMoveAt = now;
 
-        const maxX = screen.availLeft + screen.availWidth - window.outerWidth;
-        const maxY = screen.availTop + screen.availHeight - window.outerHeight;
-        const x = clamp(baseX, screen.availLeft, Math.max(screen.availLeft, maxX));
-        const y = clamp(baseY - 20, screen.availTop, Math.max(screen.availTop, maxY));
+        const availLeft = Number.isFinite(screen.availLeft) ? screen.availLeft : 0;
+        const availTop = Number.isFinite(screen.availTop) ? screen.availTop : 0;
+        const maxX = availLeft + screen.availWidth - window.outerWidth;
+        const maxY = availTop + screen.availHeight - window.outerHeight;
+        const x = clamp(baseX, availLeft, Math.max(availLeft, maxX));
+        const y = clamp(baseY - 20, availTop, Math.max(availTop, maxY));
 
         try {
           window.moveTo(x, y);
