@@ -55,7 +55,6 @@
       let lastJumpAt = 0;
       let returnTimer = 0;
       let movementFrame = 0;
-      let jumpPattern = 0;
       let homeX = window.screenX;
       let homeY = window.screenY;
 
@@ -117,18 +116,29 @@
         analyser.connect(audioContext.destination);
       }
 
-      function animateWindowTo(targetX, targetY, duration, easing, done) {
+      function animateWindowTo(targetX, targetY, duration, curveAmount = 0) {
         if (movementFrame) cancelAnimationFrame(movementFrame);
 
         const startX = Number.isFinite(window.screenX) ? window.screenX : homeX;
         const startY = Number.isFinite(window.screenY) ? window.screenY : homeY;
         const startedAt = performance.now();
+        const left = Number.isFinite(screen.availLeft) ? screen.availLeft : 0;
+        const top = Number.isFinite(screen.availTop) ? screen.availTop : 0;
+        const maxLeft = left + screen.availWidth - window.outerWidth;
+        const maxTop = top + screen.availHeight - window.outerHeight;
+        const dx = targetX - startX;
+        const dy = targetY - startY;
+        const distance = Math.hypot(dx, dy) || 1;
+        const normalX = -dy / distance;
+        const normalY = dx / distance;
 
         function frame(now) {
-          const progress = Math.min(1, (now - startedAt) / duration);
-          const eased = easing(progress);
-          const x = startX + (targetX - startX) * eased;
-          const y = startY + (targetY - startY) * eased;
+          const t = Math.min(1, (now - startedAt) / duration);
+          // Smooth acceleration and deceleration, with a curved arc between positions.
+          const eased = t * t * (3 - 2 * t);
+          const arc = Math.sin(Math.PI * t) * curveAmount;
+          const x = clamp(startX + dx * eased + normalX * arc, left, Math.max(left, maxLeft));
+          const y = clamp(startY + dy * eased + normalY * arc, top, Math.max(top, maxTop));
 
           try {
             window.moveTo(Math.round(x), Math.round(y));
@@ -136,11 +146,10 @@
             // Chrome or the operating system may block popup movement.
           }
 
-          if (progress < 1) {
+          if (t < 1) {
             movementFrame = requestAnimationFrame(frame);
           } else {
             movementFrame = 0;
-            if (done) done();
           }
         }
 
@@ -148,8 +157,8 @@
       }
 
       function jumpWindow(now, force = false) {
-        // Leave enough time for the outward and return curves to feel like one bounce.
-        if (!force && now - lastJumpAt < 250) return;
+        // Beat-triggered random destinations create a lively but continuous drift.
+        if (!force && now - lastJumpAt < 145) return;
         lastJumpAt = now;
 
         const left = Number.isFinite(screen.availLeft) ? screen.availLeft : 0;
@@ -157,38 +166,30 @@
         const maxLeft = left + screen.availWidth - window.outerWidth;
         const maxTop = top + screen.availHeight - window.outerHeight;
 
-        const patterns = [
-          [-115, -82],
-          [115, -54],
-          [-95, 82],
-          [105, 70]
-        ];
-        const [offsetX, offsetY] = patterns[jumpPattern % patterns.length];
-        jumpPattern++;
+        // Most jumps are medium-sized; occasional larger ones make the pattern less predictable.
+        const burst = Math.random() < 0.22;
+        const rangeX = burst ? 225 : 165;
+        const rangeY = burst ? 155 : 115;
+        const offsetX = (Math.random() * 2 - 1) * rangeX;
+        const offsetY = (Math.random() * 2 - 1) * rangeY;
 
         const safeX = clamp(homeX + offsetX, left, Math.max(left, maxLeft));
         const safeY = clamp(homeY + offsetY, top, Math.max(top, maxTop));
+        const duration = 175 + Math.random() * 115;
+        const curve = (Math.random() * 2 - 1) * (burst ? 62 : 42);
 
         clearTimeout(returnTimer);
-        const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
-        const easeInOutCubic = t => t < 0.5
-          ? 4 * t * t * t
-          : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        animateWindowTo(safeX, safeY, duration, curve);
 
-        // Glide outward, pause briefly at the peak, then ease back to the origin.
-        animateWindowTo(safeX, safeY, 135, easeOutCubic, () => {
-          returnTimer = setTimeout(() => {
-            animateWindowTo(homeX, homeY, 225, easeInOutCubic);
-          }, 55);
-        });
+        // If the beat stops, glide back to the starting position instead of staying offset.
+        returnTimer = setTimeout(() => returnWindowHome(), 520);
       }
 
       function returnWindowHome() {
         clearTimeout(returnTimer);
-        const easeInOutCubic = t => t < 0.5
-          ? 4 * t * t * t
-          : 1 - Math.pow(-2 * t + 2, 3) / 2;
-        animateWindowTo(homeX, homeY, 190, easeInOutCubic);
+        const duration = 260 + Math.random() * 100;
+        const curve = (Math.random() * 2 - 1) * 24;
+        animateWindowTo(homeX, homeY, duration, curve);
       }
       function analyseFrame(now) {
         if (!moving || !analyser || video.paused || video.ended) return;
@@ -265,15 +266,13 @@
       video.addEventListener("ended", () => {
         moving = false;
         cancelAnimationFrame(frameRequest);
-        clearTimeout(returnTimer);
-        try { window.moveTo(homeX, homeY); } catch (_) {}
+        returnWindowHome();
       });
 
       window.addEventListener("keydown", event => {
         if (event.key === "Escape" && moving) {
           moving = false;
           cancelAnimationFrame(frameRequest);
-          clearTimeout(returnTimer);
           returnWindowHome();
         }
       });
