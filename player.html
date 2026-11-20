@@ -17,6 +17,9 @@
     #startButton:active{transform:translateY(3px);box-shadow:0 2px 0 #809b13}
     #startButton:disabled{opacity:.7;cursor:wait}
     #error{display:none;color:#ffd36b;font-size:13px;margin-top:14px;overflow-wrap:anywhere}
+    #phaseFallback{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:24px;text-align:center;background:#050308eF}
+    #phaseFallback[hidden]{display:none}
+    #phaseButton{border:0;border-radius:999px;padding:15px 26px;font-size:17px;font-weight:900;background:#d8ff36;color:#171323;cursor:pointer}
     body.started{cursor:none}
     body.started #video{cursor:none}
   </style>
@@ -35,12 +38,22 @@
     </div>
   </section>
 
+  <section id="phaseFallback" hidden>
+    <div class="panel">
+      <h1>FASE 2</h1>
+      <p>Chrome bloqueó la apertura automática de la segunda ventana. Pulsa aquí para abrir la repetición caótica.</p>
+      <button id="phaseButton" type="button">ABRIR FASE 2</button>
+    </div>
+  </section>
+
   <script>
     (() => {
       const video = document.getElementById("video");
       const startScreen = document.getElementById("startScreen");
       const startButton = document.getElementById("startButton");
       const error = document.getElementById("error");
+      const phaseFallback = document.getElementById("phaseFallback");
+      const phaseButton = document.getElementById("phaseButton");
       const videoUrl = new URL("media/odio-el-trojano.mp4", document.baseURI).href;
 
       let audioContext = null;
@@ -263,10 +276,42 @@
 
       startButton.addEventListener("click", startVideo);
 
+      function openPhaseTwo() {
+        const next = window.open(
+          "chaos.html",
+          "OdioElTrojanoChaos",
+          "popup=yes,width=900,height=700,resizable=yes,scrollbars=no"
+        );
+
+        if (next) {
+          phaseFallback.hidden = true;
+          try { next.focus(); } catch (_) {}
+        } else {
+          // Browsers commonly block popups opened without a fresh user click.
+          phaseFallback.hidden = false;
+        }
+      }
+
+      phaseButton.addEventListener("click", () => {
+        const next = window.open(
+          "chaos.html",
+          "OdioElTrojanoChaos",
+          "popup=yes,width=900,height=700,resizable=yes,scrollbars=no"
+        );
+        if (next) {
+          phaseFallback.hidden = true;
+          try { next.focus(); } catch (_) {}
+        } else {
+          // Same-window fallback keeps the second phase reachable if popups are disabled.
+          window.location.href = "chaos.html";
+        }
+      });
+
       video.addEventListener("ended", () => {
         moving = false;
         cancelAnimationFrame(frameRequest);
         returnWindowHome();
+        openPhaseTwo();
       });
 
       window.addEventListener("keydown", event => {
