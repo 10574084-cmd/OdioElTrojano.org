@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8,32 +8,21 @@
     *{box-sizing:border-box}
     html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050308}
     body{font-family:Arial,Helvetica,sans-serif;color:#fff}
-    #video{
-      position:fixed;inset:0;width:100vw;height:100vh;
-      object-fit:contain;background:#050308;display:block;
-    }
-    #startScreen{
-      position:fixed;inset:0;z-index:5;display:grid;place-items:center;
-      padding:24px;text-align:center;
-      background:radial-gradient(circle at 50% 35%,#53164c 0,#1a0b26 55%,#050308 100%);
-    }
-    .panel{width:min(520px,100%);padding:clamp(24px,6vw,48px);
-      border:2px solid #ff4f9a99;border-radius:26px;background:#110d1df2;
-      box-shadow:0 0 55px #ff4f9a44}
-    h1{font-size:clamp(32px,8vw,64px);line-height:.93;margin:0 0 16px;
-      color:#d8ff36;text-shadow:4px 4px 0 #d62981;letter-spacing:-2px}
+    #video{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain;background:#050308;display:block}
+    #startScreen{position:fixed;inset:0;z-index:5;display:grid;place-items:center;padding:24px;text-align:center;background:radial-gradient(circle at 50% 35%,#53164c 0,#1a0b26 55%,#050308 100%)}
+    .panel{width:min(520px,100%);padding:clamp(24px,6vw,48px);border:2px solid #ff4f9a99;border-radius:26px;background:#110d1df2;box-shadow:0 0 55px #ff4f9a44}
+    h1{font-size:clamp(32px,8vw,64px);line-height:.93;margin:0 0 16px;color:#d8ff36;text-shadow:4px 4px 0 #d62981;letter-spacing:-2px}
     p{color:#eadced;line-height:1.5;font-size:14px}
-    #startButton{border:0;border-radius:999px;padding:16px 30px;
-      font-size:18px;font-weight:900;background:#d8ff36;color:#171323;
-      cursor:pointer;box-shadow:0 5px 0 #809b13}
+    #startButton{border:0;border-radius:999px;padding:16px 30px;font-size:18px;font-weight:900;background:#d8ff36;color:#171323;cursor:pointer;box-shadow:0 5px 0 #809b13}
     #startButton:active{transform:translateY(3px);box-shadow:0 2px 0 #809b13}
-    #error{display:none;color:#ffd36b;font-size:13px;margin-top:14px}
+    #startButton:disabled{opacity:.7;cursor:wait}
+    #error{display:none;color:#ffd36b;font-size:13px;margin-top:14px;overflow-wrap:anywhere}
     body.started{cursor:none}
     body.started #video{cursor:none}
   </style>
 </head>
 <body>
-  <video id="video" autoplay playsinline preload="auto" disablepictureinpicture>
+  <video id="video" playsinline preload="auto" disablepictureinpicture>
     <source src="media/odio-el-trojano.mp4" type="video/mp4">
   </video>
 
@@ -52,6 +41,7 @@
       const startScreen = document.getElementById("startScreen");
       const startButton = document.getElementById("startButton");
       const error = document.getElementById("error");
+      const videoUrl = new URL("media/odio-el-trojano.mp4", document.baseURI).href;
 
       let audioContext = null;
       let analyser = null;
@@ -69,22 +59,64 @@
 
       const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+      function showError(message) {
+        error.textContent = message;
+        error.style.display = "block";
+        startButton.disabled = false;
+        startButton.textContent = "▶ TRY AGAIN";
+      }
+
+      function mediaErrorMessage() {
+        if (!video.error) return "No se pudo cargar el video. Revisa que el MP4 exista en media/odio-el-trojano.mp4.";
+        const messages = {
+          1: "La carga del video fue interrumpida.",
+          2: "Error de red al descargar el MP4.",
+          3: "El navegador no pudo decodificar el video.",
+          4: "No se encontró un MP4 compatible en media/odio-el-trojano.mp4."
+        };
+        return messages[video.error.code] || "No se pudo cargar el MP4. Revisa media/odio-el-trojano.mp4.";
+      }
+
+      function waitForVideo() {
+        if (video.error) return Promise.reject(new Error(mediaErrorMessage()));
+        if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return Promise.resolve();
+
+        return new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error("El video tardó demasiado en cargar. Comprueba el archivo MP4 y vuelve a intentarlo."));
+          }, 15000);
+
+          function cleanup() {
+            clearTimeout(timeout);
+            video.removeEventListener("canplay", onReady);
+            video.removeEventListener("error", onError);
+          }
+          function onReady() { cleanup(); resolve(); }
+          function onError() { cleanup(); reject(new Error(mediaErrorMessage())); }
+
+          video.addEventListener("canplay", onReady);
+          video.addEventListener("error", onError);
+          video.load();
+        });
+      }
+
       function setupAudio() {
         if (audioContext) return;
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) throw new Error("Web Audio is not available.");
+        if (!AudioContextClass) throw new Error("Web Audio no está disponible en este navegador.");
         audioContext = new AudioContextClass();
         analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
-        analyser.smoothingTimeConstant = 0.7;
+        analyser.fftSize = 4096;
+        analyser.smoothingTimeConstant = 0.25;
         frequencyData = new Uint8Array(analyser.frequencyBinCount);
         sourceNode = audioContext.createMediaElementSource(video);
         sourceNode.connect(analyser);
         analyser.connect(audioContext.destination);
       }
 
-      function jumpWindow(now) {
-        if (now - lastJumpAt < 260) return;
+      function jumpWindow(now, force = false) {
+        if (!force && now - lastJumpAt < 230) return;
         lastJumpAt = now;
 
         const left = Number.isFinite(screen.availLeft) ? screen.availLeft : 0;
@@ -92,16 +124,16 @@
         const maxLeft = left + screen.availWidth - window.outerWidth;
         const maxTop = top + screen.availHeight - window.outerHeight;
         const safeX = clamp(homeX, left, Math.max(left, maxLeft));
-        const safeY = clamp(homeY - 24, top, Math.max(top, maxTop));
+        const safeY = clamp(homeY - 34, top, Math.max(top, maxTop));
 
         try {
           window.moveTo(safeX, safeY);
           clearTimeout(returnTimer);
           returnTimer = setTimeout(() => {
             try { window.moveTo(homeX, homeY); } catch (_) {}
-          }, 120);
+          }, 145);
         } catch (_) {
-          // Browser/OS policy may block physical popup movement.
+          // Chrome or the operating system may silently block popup movement.
         }
       }
 
@@ -110,16 +142,16 @@
         analyser.getByteFrequencyData(frequencyData);
 
         let bass = 0;
-        const firstBin = 2;
-        const lastBin = Math.min(22, frequencyData.length);
+        const firstBin = 3;
+        const lastBin = Math.min(18, frequencyData.length);
         for (let i = firstBin; i < lastBin; i++) bass += frequencyData[i];
         bass /= Math.max(1, lastBin - firstBin);
 
-        averageBass = averageBass === 0 ? bass : averageBass * 0.93 + bass * 0.07;
-        const threshold = Math.max(20, averageBass * 1.28);
-        const peak = bass > threshold && bass > previousBass * 1.035;
+        averageBass = averageBass === 0 ? bass : averageBass * 0.95 + bass * 0.05;
+        const threshold = Math.max(12, averageBass * 1.22);
+        const peak = bass > threshold && bass > previousBass * 1.06;
 
-        if (peak && now - lastBeatAt > 240) {
+        if (peak && now - lastBeatAt > 210) {
           lastBeatAt = now;
           jumpWindow(now);
         }
@@ -130,38 +162,50 @@
 
       async function startVideo() {
         startButton.disabled = true;
+        startButton.textContent = "LOADING VIDEO...";
         error.style.display = "none";
+
         try {
-          if (!video.querySelector("source") || !video.currentSrc) {
-            throw new Error("The MP4 is missing. Add media/odio-el-trojano.mp4 to the repository.");
+          // Always point at the exact expected file; do not rely on currentSrc
+          // being populated before the browser has selected the media resource.
+          if (!video.currentSrc) video.src = videoUrl;
+          await waitForVideo();
+
+          // Audio analysis is optional: playback should still start if Web Audio
+          // is unavailable, instead of making the button appear to do nothing.
+          try {
+            setupAudio();
+            await audioContext.resume();
+          } catch (audioError) {
+            analyser = null;
+            console.warn("Beat detection unavailable:", audioError);
           }
 
-          setupAudio();
-          await audioContext.resume();
-
-          // This is a popup created from the previous page's click. Capture its position
-          // before playback; movement is best-effort because browser/OS policy can deny it.
           homeX = window.screenX;
           homeY = window.screenY;
-
           await video.play();
-
-          moving = true;
-          averageBass = 0;
-          previousBass = 0;
-          lastBeatAt = 0;
-          lastJumpAt = 0;
 
           startScreen.remove();
           document.body.classList.add("started");
-          cancelAnimationFrame(frameRequest);
-          frameRequest = requestAnimationFrame(analyseFrame);
+
+          if (analyser) {
+            moving = true;
+            averageBass = 0;
+            previousBass = 0;
+            lastBeatAt = 0;
+            lastJumpAt = 0;
+            jumpWindow(performance.now(), true);
+            cancelAnimationFrame(frameRequest);
+            frameRequest = requestAnimationFrame(analyseFrame);
+          }
         } catch (err) {
-          startButton.disabled = false;
-          error.textContent = err && err.message ? err.message : "Could not start the video.";
-          error.style.display = "block";
+          showError(err && err.message ? err.message : mediaErrorMessage());
         }
       }
+
+      video.addEventListener("error", () => {
+        if (startScreen.isConnected) showError(mediaErrorMessage());
+      });
 
       startButton.addEventListener("click", startVideo);
 
@@ -170,12 +214,6 @@
         cancelAnimationFrame(frameRequest);
         clearTimeout(returnTimer);
         try { window.moveTo(homeX, homeY); } catch (_) {}
-      });
-
-      video.addEventListener("error", () => {
-        startButton.disabled = false;
-        error.textContent = "Video not found. Add a video you are allowed to publish at media/odio-el-trojano.mp4.";
-        error.style.display = "block";
       });
 
       window.addEventListener("keydown", event => {
