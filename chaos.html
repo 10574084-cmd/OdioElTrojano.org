@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ODIO EL TROYANO - FASE 2</title>
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101014}
+    body{font-family:Arial,Helvetica,sans-serif;color:#fff}
+    #video{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain;background:#08080b;display:block;transform:translate3d(0,0,0) scale(1);transition:transform 260ms cubic-bezier(.18,.78,.24,1),filter 400ms ease;will-change:transform,filter}
+    #ambience{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,#777 0%,#333 55%,#08080b 100%);opacity:.10;animation:slowAmbience 9s ease-in-out infinite alternate}
+    @keyframes slowAmbience{from{opacity:.08}to{opacity:.28}}
+    #startScreen{position:fixed;inset:0;z-index:5;display:grid;place-items:center;padding:24px;text-align:center;background:rgba(5,5,10,.84);backdrop-filter:blur(8px)}
+    .panel{width:min(520px,100%);padding:clamp(24px,6vw,48px);border:2px solid #ff4f9a99;border-radius:26px;background:#110d1df2;box-shadow:0 0 55px #ff4f9a44}
+    h1{font-size:clamp(30px,7vw,58px);line-height:.95;margin:0 0 16px;color:#d8ff36;text-shadow:4px 4px 0 #d62981;letter-spacing:-2px}
+    p{color:#eadced;line-height:1.5;font-size:14px}
+    #startButton{border:0;border-radius:999px;padding:16px 30px;font-size:18px;font-weight:900;background:#d8ff36;color:#171323;cursor:pointer;box-shadow:0 5px 0 #809b13}
+    #startButton:disabled{opacity:.7;cursor:wait}
+    #error{display:none;color:#ffd36b;font-size:13px;margin-top:14px;overflow-wrap:anywhere}
+  </style>
+</head>
+<body>
+  <video id="video" playsinline preload="auto" loop disablepictureinpicture>
+    <source src="media/odio-el-trojano.mp4" type="video/mp4">
+  </video>
+  <div id="ambience"></div>
+  <section id="startScreen">
+    <div class="panel">
+      <h1>ODIO EL<br>TROYANO</h1>
+      <p>FASE 2 · El video vuelve en bucle, con movimiento más caótico y luces ambientales suaves.</p>
+      <button id="startButton" type="button">▶ START THE CHAOS</button>
+      <p id="error" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+  <script>
+    (() => {
+      const video = document.getElementById("video");
+      const screen = document.getElementById("startScreen");
+      const button = document.getElementById("startButton");
+      const error = document.getElementById("error");
+      let audioContext = null;
+      let analyser = null;
+      let sourceNode = null;
+      let data = null;
+      let frame = 0;
+      let movingFrame = 0;
+      let moving = false;
+      let average = 0;
+      let previous = 0;
+      let lastBeat = 0;
+      let lastMove = 0;
+      const homeX = window.screenX;
+      const homeY = window.screenY;
+      const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+
+      function makeAudioAnalyser() {
+        const Audio = window.AudioContext || window.webkitAudioContext;
+        if (!Audio) throw new Error("Web Audio no está disponible.");
+        audioContext = new Audio();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 4096;
+        analyser.smoothingTimeConstant = .22;
+        data = new Uint8Array(analyser.frequencyBinCount);
+        sourceNode = audioContext.createMediaElementSource(video);
+        sourceNode.connect(analyser);
+        analyser.connect(audioContext.destination);
+      }
+
+      function smoothMove(targetX,targetY,duration) {
+        if (movingFrame) cancelAnimationFrame(movingFrame);
+        const x0 = Number.isFinite(window.screenX) ? window.screenX : homeX;
+        const y0 = Number.isFinite(window.screenY) ? window.screenY : homeY;
+        const dx = targetX-x0, dy = targetY-y0;
+        const distance = Math.hypot(dx,dy)||1;
+        const nx = -dy/distance, ny = dx/distance;
+        const curve = (Math.random()*2-1)*50;
+        const started = performance.now();
+        const left = Number.isFinite(screen.availLeft) ? screen.availLeft : 0;
+        const top = Number.isFinite(screen.availTop) ? screen.availTop : 0;
+        const maxX = Math.max(left,left+screen.availWidth-window.outerWidth);
+        const maxY = Math.max(top,top+screen.availHeight-window.outerHeight);
+        function tick(now) {
+          const t = Math.min(1,(now-started)/duration);
+          const eased = t*t*(3-2*t);
+          const arc = Math.sin(Math.PI*t)*curve;
+          const x = clamp(x0+dx*eased+nx*arc,left,maxX);
+          const y = clamp(y0+dy*eased+ny*arc,top,maxY);
+          try { window.moveTo(Math.round(x),Math.round(y)); } catch (_) {}
+          if (t<1) movingFrame=requestAnimationFrame(tick);
+          else movingFrame=0;
+        }
+        movingFrame=requestAnimationFrame(tick);
+      }
+
+      function chaosBeat(now) {
+        if (now-lastMove<150) return;
+        lastMove=now;
+        const left = Number.isFinite(screen.availLeft) ? screen.availLeft : 0;
+        const top = Number.isFinite(screen.availTop) ? screen.availTop : 0;
+        const maxX = Math.max(left,left+screen.availWidth-window.outerWidth);
+        const maxY = Math.max(top,top+screen.availHeight-window.outerHeight);
+        const burst = Math.random()<.28;
+        const tx = clamp(homeX+(Math.random()*2-1)*(burst?255:190),left,maxX);
+        const ty = clamp(homeY+(Math.random()*2-1)*(burst?180:130),top,maxY);
+        smoothMove(tx,ty,190+Math.random()*170);
+
+        const turn = (Math.random()*2-1)*(burst?10:7);
+        const scale = 1.025+Math.random()*(burst?.12:.075);
+        const shiftX = (Math.random()*2-1)*(burst?18:12);
+        const shiftY = (Math.random()*2-1)*(burst?16:10);
+        video.style.transform = `translate3d(${shiftX}px,${shiftY}px,0) rotate(${turn}deg) scale(${scale})`;
+        video.style.filter = `saturate(${1.1+Math.random()*1.1}) contrast(${1.02+Math.random()*.24})`;
+      }
+
+      function analyse(now) {
+        if (!moving || !analyser || video.paused || video.ended) return;
+        analyser.getByteFrequencyData(data);
+        let bass=0;
+        for(let i=3;i<18;i++) bass+=data[i];
+        bass/=15;
+        average=average===0?bass:average*.94+bass*.06;
+        const peak=bass>Math.max(8,average*1.12)&&bass>previous*1.025;
+        if(peak&&now-lastBeat>190){
+          lastBeat=now;
+          chaosBeat(now);
+        }
+        previous=bass;
+        frame=requestAnimationFrame(analyse);
+      }
+
+      async function start() {
+        button.disabled=true;
+        button.textContent="LOADING...";
+        error.style.display="none";
+        try {
+          if (!video.currentSrc) video.src=new URL("media/odio-el-trojano.mp4",document.baseURI).href;
+          if (video.readyState<HTMLMediaElement.HAVE_CURRENT_DATA) {
+            await new Promise((resolve,reject)=>{
+              const timeout=setTimeout(()=>{cleanup();reject(new Error("El video tardó demasiado en cargar."));},15000);
+              function cleanup(){clearTimeout(timeout);video.removeEventListener("canplay",ready);video.removeEventListener("error",failed);}
+              function ready(){cleanup();resolve();}
+              function failed(){cleanup();reject(new Error("No se pudo cargar media/odio-el-trojano.mp4."));}
+              video.addEventListener("canplay",ready,{once:true});
+              video.addEventListener("error",failed,{once:true});
+              video.load();
+            });
+          }
+          try { makeAudioAnalyser(); await audioContext.resume(); }
+          catch(e) { analyser=null; console.warn("Beat detection unavailable:",e); }
+          await video.play();
+          screen.remove();
+          moving=true;
+          if(analyser) frame=requestAnimationFrame(analyse);
+          else {
+            // A gentle motion fallback still works when beat analysis is unavailable.
+            const fallback=()=>{if(!moving)return;chaosBeat(performance.now());setTimeout(fallback,620);};
+            fallback();
+          }
+        } catch(e) {
+          error.textContent=e.message||"No se pudo iniciar el video.";
+          error.style.display="block";
+          button.disabled=false;
+          button.textContent="▶ TRY AGAIN";
+        }
+      }
+
+      button.addEventListener("click",start);
+      video.addEventListener("ended",()=>{try{video.currentTime=0;video.play();}catch(_){}});
+      window.addEventListener("beforeunload",()=>{
+        moving=false;
+        cancelAnimationFrame(frame);
+        cancelAnimationFrame(movingFrame);
+        try{if(audioContext)audioContext.close();}catch(_){}
+      });
+    })();
+  </script>
+</body>
+</html>
