@@ -1,43 +1,57 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Odio el chocolate</title>
+  <title>ODIO EL TROYANO</title>
   <style>
-    :root{color-scheme:dark;--lime:#d8ff36;--pink:#ff4f9a}
     *{box-sizing:border-box}
-    html,body{margin:0;width:100%;height:100%;overflow:hidden}
-    body{min-height:100vh;display:grid;place-items:center;padding:14px;
-      background:radial-gradient(circle at 50% 15%,#4c174b,#100b1d 65%);
-      color:#fff;font-family:Arial,Helvetica,sans-serif}
-    main{width:min(720px,100%);padding:clamp(10px,2.5vw,20px);
-      border:1px solid #ff4f9a88;border-radius:22px;background:#130e20;
-      box-shadow:0 0 36px #ff4f9a22;text-align:center}
-    h1{margin:0 0 12px;color:var(--lime);font-size:clamp(21px,4vw,36px)}
-    video{display:block;width:100%;max-height:72vh;object-fit:contain;background:#050505;border-radius:12px}
-    /* No native controls: playback and movement run automatically where browser policy permits. */
-    #enableAudio{display:none;margin:14px auto 0;border:0;border-radius:999px;
-      padding:13px 22px;font-weight:900;background:var(--lime);color:#171323;cursor:pointer}
-    #status{min-height:1.5em;margin:10px 0 0;color:#e9dced;font-size:12px;line-height:1.45}
-    body.bump main{filter:brightness(1.16)}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050308}
+    body{font-family:Arial,Helvetica,sans-serif;color:#fff}
+    #video{
+      position:fixed;inset:0;width:100vw;height:100vh;
+      object-fit:contain;background:#050308;display:block;
+    }
+    #startScreen{
+      position:fixed;inset:0;z-index:5;display:grid;place-items:center;
+      padding:24px;text-align:center;
+      background:radial-gradient(circle at 50% 35%,#53164c 0,#1a0b26 55%,#050308 100%);
+    }
+    .panel{width:min(520px,100%);padding:clamp(24px,6vw,48px);
+      border:2px solid #ff4f9a99;border-radius:26px;background:#110d1df2;
+      box-shadow:0 0 55px #ff4f9a44}
+    h1{font-size:clamp(32px,8vw,64px);line-height:.93;margin:0 0 16px;
+      color:#d8ff36;text-shadow:4px 4px 0 #d62981;letter-spacing:-2px}
+    p{color:#eadced;line-height:1.5;font-size:14px}
+    #startButton{border:0;border-radius:999px;padding:16px 30px;
+      font-size:18px;font-weight:900;background:#d8ff36;color:#171323;
+      cursor:pointer;box-shadow:0 5px 0 #809b13}
+    #startButton:active{transform:translateY(3px);box-shadow:0 2px 0 #809b13}
+    #error{display:none;color:#ffd36b;font-size:13px;margin-top:14px}
+    body.started{cursor:none}
+    body.started #video{cursor:none}
   </style>
 </head>
 <body>
-  <main>
-    <h1>ODIO EL CHOCOLATE</h1>
-    <video id="video" autoplay playsinline preload="auto" disablepictureinpicture>
-      <source src="media/odio-el-trojano.mp4" type="video/mp4">
-      Tu navegador no puede reproducir este video.
-    </video>
-    <button id="enableAudio" type="button">▶ ACTIVAR AUDIO Y MOVIMIENTO</button>
-    <p id="status" role="status" aria-live="polite">Cargando el video…</p>
-  </main>
+  <video id="video" autoplay playsinline preload="auto" disablepictureinpicture>
+    <source src="media/odio-el-trojano.mp4" type="video/mp4">
+  </video>
+
+  <section id="startScreen">
+    <div class="panel">
+      <h1>ODIO EL<br>TROYANO</h1>
+      <p>Ready? The video will fill this window and the window will try to bounce with the beat.</p>
+      <button id="startButton" type="button">▶ START THE VIDEO</button>
+      <p id="error" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
   <script>
     (() => {
       const video = document.getElementById("video");
-      const enableAudio = document.getElementById("enableAudio");
-      const status = document.getElementById("status");
+      const startScreen = document.getElementById("startScreen");
+      const startButton = document.getElementById("startButton");
+      const error = document.getElementById("error");
 
       let audioContext = null;
       let analyser = null;
@@ -58,7 +72,7 @@
       function setupAudio() {
         if (audioContext) return;
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) throw new Error("Web Audio no está disponible");
+        if (!AudioContextClass) throw new Error("Web Audio is not available.");
         audioContext = new AudioContextClass();
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 2048;
@@ -70,26 +84,24 @@
       }
 
       function jumpWindow(now) {
-        // A brief, restrained bounce. The browser/OS may choose to ignore moveTo().
         if (now - lastJumpAt < 260) return;
         lastJumpAt = now;
+
         const left = Number.isFinite(screen.availLeft) ? screen.availLeft : 0;
         const top = Number.isFinite(screen.availTop) ? screen.availTop : 0;
         const maxLeft = left + screen.availWidth - window.outerWidth;
         const maxTop = top + screen.availHeight - window.outerHeight;
         const safeX = clamp(homeX, left, Math.max(left, maxLeft));
-        const safeY = clamp(homeY - 22, top, Math.max(top, maxTop));
+        const safeY = clamp(homeY - 24, top, Math.max(top, maxTop));
 
         try {
           window.moveTo(safeX, safeY);
-          document.body.classList.add("bump");
           clearTimeout(returnTimer);
           returnTimer = setTimeout(() => {
             try { window.moveTo(homeX, homeY); } catch (_) {}
-            document.body.classList.remove("bump");
-          }, 115);
+          }, 120);
         } catch (_) {
-          status.textContent = "El navegador está reproduciendo el video; este sistema no permite mover la ventana.";
+          // Browser/OS policy may block physical popup movement.
         }
       }
 
@@ -97,7 +109,6 @@
         if (!moving || !analyser || video.paused || video.ended) return;
         analyser.getByteFrequencyData(frequencyData);
 
-        // Average the lowest frequency bins (bass), then detect a fresh peak.
         let bass = 0;
         const firstBin = 2;
         const lastBin = Math.min(22, frequencyData.length);
@@ -117,67 +128,62 @@
         frameRequest = requestAnimationFrame(analyseFrame);
       }
 
-      async function begin() {
+      async function startVideo() {
+        startButton.disabled = true;
+        error.style.display = "none";
         try {
+          if (!video.querySelector("source") || !video.currentSrc) {
+            throw new Error("The MP4 is missing. Add media/odio-el-trojano.mp4 to the repository.");
+          }
+
           setupAudio();
           await audioContext.resume();
-          await video.play();
 
+          // This is a popup created from the previous page's click. Capture its position
+          // before playback; movement is best-effort because browser/OS policy can deny it.
           homeX = window.screenX;
           homeY = window.screenY;
+
+          await video.play();
+
+          moving = true;
           averageBass = 0;
           previousBass = 0;
           lastBeatAt = 0;
           lastJumpAt = 0;
-          moving = true;
-          enableAudio.style.display = "none";
-          status.textContent = "▶ Reproduciendo. La ventana salta cuando detecta los golpes de graves.";
+
+          startScreen.remove();
+          document.body.classList.add("started");
           cancelAnimationFrame(frameRequest);
           frameRequest = requestAnimationFrame(analyseFrame);
-        } catch (error) {
-          moving = false;
-          enableAudio.style.display = "block";
-          status.textContent = "Chrome bloqueó el autoplay con sonido. Pulsa el único botón para activar audio y movimiento.";
+        } catch (err) {
+          startButton.disabled = false;
+          error.textContent = err && err.message ? err.message : "Could not start the video.";
+          error.style.display = "block";
         }
       }
 
-      // Try audible autoplay on popup load. If browser policy blocks it, show a one-click fallback.
-      window.addEventListener("load", () => {
-        begin();
-      });
-
-      enableAudio.addEventListener("click", () => {
-        begin();
-      });
-
-      video.addEventListener("playing", () => {
-        if (moving) status.textContent = "▶ Reproduciendo y detectando el ritmo…";
-      });
+      startButton.addEventListener("click", startVideo);
 
       video.addEventListener("ended", () => {
         moving = false;
         cancelAnimationFrame(frameRequest);
         clearTimeout(returnTimer);
         try { window.moveTo(homeX, homeY); } catch (_) {}
-        document.body.classList.remove("bump");
-        status.textContent = "El video terminó.";
       });
 
       video.addEventListener("error", () => {
-        moving = false;
-        enableAudio.style.display = "none";
-        status.textContent = "No se encontró media/odio-el-trojano.mp4. Añade un video que tengas permiso de publicar.";
+        startButton.disabled = false;
+        error.textContent = "Video not found. Add a video you are allowed to publish at media/odio-el-trojano.mp4.";
+        error.style.display = "block";
       });
 
-      // Esc stops the motion without trapping the user or blocking Chrome's normal close button.
       window.addEventListener("keydown", event => {
         if (event.key === "Escape" && moving) {
           moving = false;
           cancelAnimationFrame(frameRequest);
           clearTimeout(returnTimer);
           try { window.moveTo(homeX, homeY); } catch (_) {}
-          document.body.classList.remove("bump");
-          status.textContent = "Movimiento detenido con Esc. Puedes cerrar esta ventana con la X de Chrome.";
         }
       });
 
