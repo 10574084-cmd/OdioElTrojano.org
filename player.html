@@ -54,6 +54,7 @@
       let lastBeatAt = 0;
       let lastJumpAt = 0;
       let returnTimer = 0;
+      let movementFrame = 0;
       let jumpPattern = 0;
       let homeX = window.screenX;
       let homeY = window.screenY;
@@ -116,9 +117,39 @@
         analyser.connect(audioContext.destination);
       }
 
+      function animateWindowTo(targetX, targetY, duration, easing, done) {
+        if (movementFrame) cancelAnimationFrame(movementFrame);
+
+        const startX = Number.isFinite(window.screenX) ? window.screenX : homeX;
+        const startY = Number.isFinite(window.screenY) ? window.screenY : homeY;
+        const startedAt = performance.now();
+
+        function frame(now) {
+          const progress = Math.min(1, (now - startedAt) / duration);
+          const eased = easing(progress);
+          const x = startX + (targetX - startX) * eased;
+          const y = startY + (targetY - startY) * eased;
+
+          try {
+            window.moveTo(Math.round(x), Math.round(y));
+          } catch (_) {
+            // Chrome or the operating system may block popup movement.
+          }
+
+          if (progress < 1) {
+            movementFrame = requestAnimationFrame(frame);
+          } else {
+            movementFrame = 0;
+            if (done) done();
+          }
+        }
+
+        movementFrame = requestAnimationFrame(frame);
+      }
+
       function jumpWindow(now, force = false) {
-        // Faster cooldown plus larger alternating diagonal jumps.
-        if (!force && now - lastJumpAt < 165) return;
+        // Leave enough time for the outward and return curves to feel like one bounce.
+        if (!force && now - lastJumpAt < 250) return;
         lastJumpAt = now;
 
         const left = Number.isFinite(screen.availLeft) ? screen.availLeft : 0;
@@ -138,17 +169,27 @@
         const safeX = clamp(homeX + offsetX, left, Math.max(left, maxLeft));
         const safeY = clamp(homeY + offsetY, top, Math.max(top, maxTop));
 
-        try {
-          window.moveTo(safeX, safeY);
-          clearTimeout(returnTimer);
+        clearTimeout(returnTimer);
+        const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+        const easeInOutCubic = t => t < 0.5
+          ? 4 * t * t * t
+          : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        // Glide outward, pause briefly at the peak, then ease back to the origin.
+        animateWindowTo(safeX, safeY, 135, easeOutCubic, () => {
           returnTimer = setTimeout(() => {
-            try { window.moveTo(homeX, homeY); } catch (_) {}
-          }, 175);
-        } catch (_) {
-          // Chrome or the operating system may silently block popup movement.
-        }
+            animateWindowTo(homeX, homeY, 225, easeInOutCubic);
+          }, 55);
+        });
       }
 
+      function returnWindowHome() {
+        clearTimeout(returnTimer);
+        const easeInOutCubic = t => t < 0.5
+          ? 4 * t * t * t
+          : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        animateWindowTo(homeX, homeY, 190, easeInOutCubic);
+      }
       function analyseFrame(now) {
         if (!moving || !analyser || video.paused || video.ended) return;
         analyser.getByteFrequencyData(frequencyData);
@@ -233,13 +274,14 @@
           moving = false;
           cancelAnimationFrame(frameRequest);
           clearTimeout(returnTimer);
-          try { window.moveTo(homeX, homeY); } catch (_) {}
+          returnWindowHome();
         }
       });
 
       window.addEventListener("beforeunload", () => {
         moving = false;
         cancelAnimationFrame(frameRequest);
+        cancelAnimationFrame(movementFrame);
         clearTimeout(returnTimer);
         try { if (audioContext) audioContext.close(); } catch (_) {}
       });
