@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ODIO EL TROYANO</title>
+  <style>
+    :root{color-scheme:dark;--lime:#d8ff36;--pink:#ff4f9a}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;
+      font-family:Arial,Helvetica,sans-serif;color:#fff;
+      background:radial-gradient(circle at 50% 35%,#4b164a 0,#1a0b26 45%,#090711 100%)}
+    main{width:min(650px,100%);text-align:center;border:2px solid #ff4f9a88;
+      border-radius:28px;padding:clamp(24px,6vw,54px);
+      background:#110d1ce8;box-shadow:0 0 55px #ff4f9a33}
+    h1{font-size:clamp(34px,8vw,76px);line-height:.95;margin:0 0 16px;
+      color:var(--lime);text-shadow:4px 4px 0 #d62981;letter-spacing:-3px}
+    p{color:#eadced;line-height:1.6}
+    button{border:0;border-radius:999px;padding:16px 28px;font-size:17px;
+      font-weight:900;background:var(--lime);color:#181322;cursor:pointer;
+      box-shadow:0 5px 0 #809b13}
+    button:active{transform:translateY(3px);box-shadow:0 2px 0 #809b13}
+    #status{min-height:1.5em;margin-top:18px;color:#d8ffb8;font-size:14px}
+    .note{font-size:12px;color:#bdaec4;margin-top:22px}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ODIO EL<br>TROYANO</h1>
+    <p>Una canción. Una ventana. Un pequeño salto al ritmo.</p>
+    <button id="openPlayer" type="button">ABRIR VENTANA DEL VIDEO</button>
+    <div id="status" role="status" aria-live="polite">Se abrirá una sola ventana emergente.</div>
+    <p class="note">La ventana se moverá únicamente después de pulsar PLAY VIDEO. Podrás detener el movimiento o cerrar la ventana en cualquier momento.</p>
+  </main>
+  <script>
+    (() => {
+      const button = document.getElementById("openPlayer");
+      const status = document.getElementById("status");
+      let playerWindow = null;
+
+      button.addEventListener("click", () => {
+        if (playerWindow && !playerWindow.closed) {
+          playerWindow.focus();
+          status.textContent = "La ventana del video ya está abierta.";
+          return;
+        }
+
+        // Se abre directamente desde el clic para respetar el bloqueo de pop-ups.
+        playerWindow = window.open(
+          "player.html",
+          "OdioElTrojanoPlayer",
+          "popup=yes,width=760,height=620,left=120,top=80,resizable=yes,scrollbars=yes"
+        );
+
+        if (!playerWindow) {
+          status.textContent = "El navegador bloqueó la ventana. Permite el pop-up para este sitio y vuelve a pulsar.";
+          return;
+        }
+
+        status.textContent = "Ventana abierta. Pulsa PLAY VIDEO dentro de ella.";
+        playerWindow.focus();
+      });
+    })();
+  </script>
+</body>
+</html>
