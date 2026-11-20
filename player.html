@@ -54,6 +54,7 @@
       let lastBeatAt = 0;
       let lastJumpAt = 0;
       let returnTimer = 0;
+      let jumpPattern = 0;
       let homeX = window.screenX;
       let homeY = window.screenY;
 
@@ -116,22 +117,33 @@
       }
 
       function jumpWindow(now, force = false) {
-        if (!force && now - lastJumpAt < 230) return;
+        // Faster cooldown plus larger alternating diagonal jumps.
+        if (!force && now - lastJumpAt < 165) return;
         lastJumpAt = now;
 
         const left = Number.isFinite(screen.availLeft) ? screen.availLeft : 0;
         const top = Number.isFinite(screen.availTop) ? screen.availTop : 0;
         const maxLeft = left + screen.availWidth - window.outerWidth;
         const maxTop = top + screen.availHeight - window.outerHeight;
-        const safeX = clamp(homeX, left, Math.max(left, maxLeft));
-        const safeY = clamp(homeY - 34, top, Math.max(top, maxTop));
+
+        const patterns = [
+          [-115, -82],
+          [115, -54],
+          [-95, 82],
+          [105, 70]
+        ];
+        const [offsetX, offsetY] = patterns[jumpPattern % patterns.length];
+        jumpPattern++;
+
+        const safeX = clamp(homeX + offsetX, left, Math.max(left, maxLeft));
+        const safeY = clamp(homeY + offsetY, top, Math.max(top, maxTop));
 
         try {
           window.moveTo(safeX, safeY);
           clearTimeout(returnTimer);
           returnTimer = setTimeout(() => {
             try { window.moveTo(homeX, homeY); } catch (_) {}
-          }, 145);
+          }, 175);
         } catch (_) {
           // Chrome or the operating system may silently block popup movement.
         }
@@ -148,8 +160,8 @@
         bass /= Math.max(1, lastBin - firstBin);
 
         averageBass = averageBass === 0 ? bass : averageBass * 0.95 + bass * 0.05;
-        const threshold = Math.max(12, averageBass * 1.22);
-        const peak = bass > threshold && bass > previousBass * 1.06;
+        const threshold = Math.max(9, averageBass * 1.12);
+        const peak = bass > threshold && bass > previousBass * 1.025;
 
         if (peak && now - lastBeatAt > 210) {
           lastBeatAt = now;
