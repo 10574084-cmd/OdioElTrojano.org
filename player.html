@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Odio el chocolate — Player</title>
+  <style>
+    :root{color-scheme:dark;--lime:#d8ff36;--pink:#ff4f9a}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;padding:18px;display:grid;place-items:center;
+      background:radial-gradient(circle at 50% 15%,#4c174b,#100b1d 65%);color:#fff;
+      font-family:Arial,Helvetica,sans-serif}
+    main{width:min(720px,100%);padding:20px;border:1px solid #ff4f9a88;border-radius:22px;
+      background:#130e20;box-shadow:0 0 36px #ff4f9a22}
+    h1{text-align:center;margin:0 0 14px;color:var(--lime);font-size:clamp(24px,5vw,38px)}
+    video{display:block;width:100%;max-height:54vh;background:#050505;border-radius:12px}
+    .buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+    button{border:0;border-radius:999px;padding:12px 18px;font-weight:900;cursor:pointer}
+    #play{background:var(--lime);color:#171323}
+    #stop{background:#ffd36b;color:#241707}
+    #close{background:#ff6a8d;color:#2a0714}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    #status{text-align:center;min-height:3em;margin:14px 0 0;color:#e9dced;font-size:13px;line-height:1.5}
+    .tip{text-align:center;color:#baaec4;font-size:11px}
+    body.jumping main{filter:brightness(1.08)}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ODIO EL CHOCOLATE</h1>
+    <video id="video" controls playsinline preload="metadata">
+      <source src="media/odio-el-trojano.mp4" type="video/mp4">
+      Tu navegador no puede reproducir este video.
+    </video>
+    <div class="buttons">
+      <button id="play" type="button">▶ PLAY VIDEO + START JUMP</button>
+      <button id="stop" type="button" disabled>STOP MOVEMENT</button>
+      <button id="close" type="button">CLOSE WINDOW</button>
+    </div>
+    <p id="status" role="status" aria-live="polite">Pulsa PLAY para iniciar el video y activar los saltos sincronizados con los graves.</p>
+    <p class="tip">Solo se mueve esta ventana emergente. STOP detiene el movimiento; CLOSE pausa el video y cierra esta ventana.</p>
+  </main>
+  <script>
+    (() => {
+      const video = document.getElementById("video");
+      const playButton = document.getElementById("play");
+      const stopButton = document.getElementById("stop");
+      const closeButton = document.getElementById("close");
+      const status = document.getElementById("status");
+
+      let audioContext = null;
+      let analyser = null;
+      let sourceNode = null;
+      let frequencyData = null;
+      let animationFrame = 0;
+      let moving = false;
+      let bassAverage = 0;
+      let previousBass = 0;
+      let lastBeatAt = 0;
+      let jumpTimeout = 0;
+      let baseX = window.screenX;
+      let baseY = window.screenY;
+      let lastMoveAt = 0;
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function restoreWindowPosition() {
+        clearTimeout(jumpTimeout);
+        try {
+          window.moveTo(baseX, baseY);
+        } catch (_) {
+          // Algunos navegadores o sistemas no permiten mover la ventana.
+        }
+        document.body.classList.remove("jumping");
+      }
+
+      function jumpWindow(now) {
+        // Pequeño salto vertical por cada golpe de graves detectado.
+        if (now - lastMoveAt < 300) return;
+        lastMoveAt = now;
+
+        const maxX = screen.availLeft + screen.availWidth - window.outerWidth;
+        const maxY = screen.availTop + screen.availHeight - window.outerHeight;
+        const x = clamp(baseX, screen.availLeft, Math.max(screen.availLeft, maxX));
+        const y = clamp(baseY - 20, screen.availTop, Math.max(screen.availTop, maxY));
+
+        try {
+          window.moveTo(x, y);
+          document.body.classList.add("jumping");
+          clearTimeout(jumpTimeout);
+          jumpTimeout = setTimeout(() => {
+            try { window.moveTo(baseX, baseY); } catch (_) {}
+            document.body.classList.remove("jumping");
+          }, 120);
+        } catch (_) {
+          status.textContent = "El navegador no permitió mover físicamente esta ventana. El video puede seguir reproduciéndose.";
+        }
+      }
+
+      function analyseAudio(now) {
+        if (!moving || !analyser || video.paused || video.ended) return;
+
+        analyser.getByteFrequencyData(frequencyData);
+        let bass = 0;
+        const end = Math.min(18, frequencyData.length);
+        for (let i = 2; i < end; i++) bass += frequencyData[i];
+        bass /= Math.max(1, end - 2);
+
+        bassAverage = bassAverage === 0 ? bass : bassAverage * 0.94 + bass * 0.06;
+        const threshold = Math.max(24, bassAverage * 1.32);
+        const isPeak = bass > threshold && bass > previousBass * 1.04;
+
+        if (isPeak && now - lastBeatAt > 270) {
+          lastBeatAt = now;
+          jumpWindow(now);
+        }
+
+        previousBass = bass;
+        animationFrame = requestAnimationFrame(analyseAudio);
+      }
+
+      async function startPlayback() {
+        if (!video.querySelector("source") || !video.currentSrc) {
+          status.textContent = "Falta el video. Añade tu archivo autorizado en media/odio-el-trojano.mp4.";
+          return;
+        }
+
+        try {
+          if (!audioContext) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) throw new Error("Web Audio no está disponible en este navegador.");
+            audioContext = new AudioContextClass();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = 0.72;
+            frequencyData = new Uint8Array(analyser.frequencyBinCount);
+            sourceNode = audioContext.createMediaElementSource(video);
+            sourceNode.connect(analyser);
+            analyser.connect(audioContext.destination);
+          }
+
+          await audioContext.resume();
+          await video.play();
+
+          baseX = window.screenX;
+          baseY = window.screenY;
+          moving = true;
+          lastBeatAt = 0;
+          previousBass = 0;
+          bassAverage = 0;
+          lastMoveAt = 0;
+          playButton.disabled = true;
+          stopButton.disabled = false;
+          status.textContent = "¡Reproduciendo! Los saltos se disparan al detectar golpes fuertes de graves.";
+          cancelAnimationFrame(animationFrame);
+          animationFrame = requestAnimationFrame(analyseAudio);
+        } catch (error) {
+          moving = false;
+          playButton.disabled = false;
+          stopButton.disabled = true;
+          status.textContent = "No se pudo iniciar: " + error.message + ". Comprueba que el video esté añadido y vuelve a pulsar.";
+        }
+      }
+
+      function stopMovement() {
+        moving = false;
+        cancelAnimationFrame(animationFrame);
+        restoreWindowPosition();
+        playButton.disabled = false;
+        stopButton.disabled = true;
+        status.textContent = video.paused ? "Movimiento detenido. Pulsa PLAY para volver a empezar." : "Movimiento detenido; el video continúa reproduciéndose.";
+      }
+
+      playButton.addEventListener("click", startPlayback);
+      stopButton.addEventListener("click", stopMovement);
+      closeButton.addEventListener("click", () => {
+        moving = false;
+        cancelAnimationFrame(animationFrame);
+        clearTimeout(jumpTimeout);
+        video.pause();
+        try { window.close(); } catch (_) {}
+        status.textContent = "Puedes cerrar esta pestaña si el navegador no permitió cerrarla automáticamente.";
+      });
+
+      video.addEventListener("pause", () => {
+        if (moving) stopMovement();
+      });
+      video.addEventListener("ended", () => {
+        if (moving) stopMovement();
+        status.textContent = "El video terminó. La ventana volvió a su posición inicial.";
+      });
+      video.addEventListener("error", () => {
+        status.textContent = "No se encontró el archivo media/odio-el-trojano.mp4. Añade un video que tengas permiso de publicar.";
+      });
+      window.addEventListener("beforeunload", () => {
+        moving = false;
+        cancelAnimationFrame(animationFrame);
+        clearTimeout(jumpTimeout);
+      });
+    })();
+  </script>
+</body>
+</html>
