@@ -22,11 +22,16 @@
     #startButton:disabled{opacity:.7;cursor:wait}
     #error{display:none;color:#ffd36b;font-size:13px;margin-top:14px;overflow-wrap:anywhere}
 
-    #finalScreen{position:fixed;inset:0;z-index:20;display:none;background:#000}
+    #finalScreen{position:fixed;inset:0;z-index:20;display:none;background:#f1f3f4;color:#202124;font-family:Arial,Helvetica,sans-serif}
     #finalScreen.show{display:block}
-    #finalImage{display:block;width:100vw;height:100vh;object-fit:fill}
+    #chromeCrash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#f1f3f4}
+    .crash-card{width:min(520px,100%);text-align:left}
+    .crash-icon{width:42px;height:42px;margin-bottom:24px;color:#5f6368}
+    .crash-card h2{font-size:22px;font-weight:500;margin:0 0 12px;color:#202124}
+    .crash-card p{font-size:14px;line-height:1.55;color:#5f6368;margin:0 0 12px}
+    .crash-code{font-size:12px;color:#80868b;margin-top:24px}
     #finalMessage{position:absolute;inset:0;display:none;place-items:center;background:#000;color:#fff;font:24px Arial,Helvetica,sans-serif}
-    #finalScreen.message #finalImage{display:none}
+    #finalScreen.message #chromeCrash{display:none}
     #finalScreen.message #finalMessage{display:grid}
     body.started{cursor:none}
     body.started #video{cursor:none}
@@ -37,7 +42,16 @@
     <source src="media/odio-el-trojano.mp4" type="video/mp4">
   </video>
   <div id="phaseAmbience" aria-hidden="true"></div>
-  <div id="finalScreen" aria-live="polite"><img id="finalImage" alt="" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22720%22%20height%3D%22400%22%20viewBox%3D%220%200%20720%20400%22%3E%3Crect%20width%3D%22720%22%20height%3D%22400%22%20fill%3D%22%230000aa%22%2F%3E%3Crect%20x%3D%22270%22%20y%3D%22144%22%20width%3D%22171%22%20height%3D%2217%22%20fill%3D%22%23aaaaaa%22%2F%3E%3Ctext%20x%3D%22355.5%22%20y%3D%22156%22%20fill%3D%22%230000aa%22%20text-anchor%3D%22middle%22%20font-family%3D%22monospace%22%20font-size%3D%2214%22%20font-weight%3D%22bold%22%20letter-spacing%3D%221%22%3EOdio%20El%20Chocolate%3C%2Ftext%3E%3Cg%20fill%3D%22%23fff%22%20font-family%3D%22monospace%22%20font-size%3D%2214%22%20font-weight%3D%22bold%22%20letter-spacing%3D%221%22%3E%3Ctext%20x%3D%2244%22%20y%3D%22188%22%3EA%20fatal%20exception%200E%20has%20occurred%20at%200028%3AC002ADB7%20in%20VXD%20VFAT(01)%20%2B%3C%2Ftext%3E%3Ctext%20x%3D%2244%22%20y%3D%22204%22%3E00000A3D7.%20The%20current%20application%20will%20be%20terminated.%3C%2Ftext%3E%3Ctext%20x%3D%2244%22%20y%3D%22236%22%3E*%20%20Press%20any%20key%20to%20terminate%20the%20current%20application.%3C%2Ftext%3E%3Ctext%20x%3D%2244%22%20y%3D%22252%22%3E*%20%20Press%20CTRL%2BALT%2BDEL%20again%20to%20restart%20your%20computer.%20You%20will%3C%2Ftext%3E%3Ctext%20x%3D%2272%22%20y%3D%22268%22%3Elose%20any%20unsaved%20information%20in%20all%20applications.%3C%2Ftext%3E%3Ctext%20x%3D%22360%22%20y%3D%22300%22%20text-anchor%3D%22middle%22%3EODIAMOS%20CHOCOLATE%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fsvg%3E"><div id="finalMessage">jaja, te asustaste</div></div>
+  <div id="finalScreen" aria-live="polite">
+    <div id="chromeCrash"><div class="crash-card">
+      <svg class="crash-icon" viewBox="0 0 48 48" aria-hidden="true"><path fill="currentColor" d="M24 4a20 20 0 1 0 20 20A20 20 0 0 0 24 4Zm0 5a15 15 0 0 1 13 7.5H24a7.5 7.5 0 0 0-6.5 3.75L11 9.8A14.9 14.9 0 0 1 24 9Zm-15 15a15 15 0 0 1 1.3-6.1l7.1 12.3a7.5 7.5 0 0 0 8.2 3.6l-3.8 6.6A15 15 0 0 1 9 24Zm15 15a15 15 0 0 1-2.1-.15l7.1-12.3a7.5 7.5 0 0 0-1.7-9.1h7.6A15 15 0 0 1 24 39Z"/></svg>
+      <h2>¡Oh, no!</h2>
+      <p>Esta página tuvo un problema y se ha cerrado.</p>
+      <p>Es posible que se haya producido un error al mostrar esta página.</p>
+      <div class="crash-code">Código de error: STATUS_ACCESS_VIOLATION</div>
+    </div></div>
+    <div id="finalMessage">jaja, te asustaste</div>
+  </div>
 
   <section id="startScreen">
     <div class="panel">
@@ -264,15 +278,6 @@
       }
 
       async function startVideo() {
-        // Request real browser fullscreen directly from the START click.
-        // Browsers reject fullscreen requests made later from a timer.
-        if (document.fullscreenElement !== document.documentElement && document.documentElement.requestFullscreen) {
-          try {
-            await document.documentElement.requestFullscreen();
-          } catch (fullscreenError) {
-            console.warn("Fullscreen was not granted; continuing in the current window.", fullscreenError);
-          }
-        }
         startButton.disabled = true;
         startButton.textContent = "LOADING VIDEO...";
         error.style.display = "none";
@@ -353,7 +358,8 @@
         video.style.transition = "none";
         video.style.transform = "none";
         video.style.filter = "none";
-        document.body.classList.remove("phase-two","phase-three");
+        document.body.classList.remove("phase-two","phase-three","started");
+        // Safe visual-only crash effect; never exhaust memory or freeze Chrome.
         finalScreen.classList.add("show");
         finalTimer = setTimeout(() => finalScreen.classList.add("message"), 2600);
       }
