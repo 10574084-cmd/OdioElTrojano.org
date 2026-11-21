@@ -264,6 +264,15 @@
       }
 
       async function startVideo() {
+        // Request real browser fullscreen directly from the START click.
+        // Browsers reject fullscreen requests made later from a timer.
+        if (document.fullscreenElement !== document.documentElement && document.documentElement.requestFullscreen) {
+          try {
+            await document.documentElement.requestFullscreen();
+          } catch (fullscreenError) {
+            console.warn("Fullscreen was not granted; continuing in the current window.", fullscreenError);
+          }
+        }
         startButton.disabled = true;
         startButton.textContent = "LOADING VIDEO...";
         error.style.display = "none";
