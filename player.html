@@ -377,7 +377,6 @@
               frameRequest = requestAnimationFrame(analyseFrame);
             }
             jumpWindow(performance.now(), true);
-            chaosTimer = setTimeout(phaseThreePulse, 80);
           } catch (err) {
             moving = false;
             console.warn("No se pudo iniciar la fase dos:", err);
