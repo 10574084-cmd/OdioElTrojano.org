@@ -184,8 +184,8 @@
       }
 
       function jumpWindow(now, force = false) {
-        // Beat-triggered random destinations create a lively but continuous drift.
-        const minimumBeatGap = phaseThree ? 80 : (phaseTwo ? 112 : 145);
+        // All three playback phases use the same fast, full-screen movement.
+        const minimumBeatGap = 80;
         if (!force && now - lastJumpAt < minimumBeatGap) return;
         lastJumpAt = now;
 
@@ -193,44 +193,27 @@
         const top = Number.isFinite(screen.availTop) ? screen.availTop : 0;
         const maxLeft = left + screen.availWidth - window.outerWidth;
         const maxTop = top + screen.availHeight - window.outerHeight;
+        const burst = Math.random() < 0.52;
+        const margin = 12;
+        const minX = left + margin;
+        const minY = top + margin;
+        const maxX = Math.max(minX, maxLeft - margin);
+        const maxY = Math.max(minY, maxTop - margin);
+        const safeX = minX + Math.random() * Math.max(0, maxX - minX);
+        const safeY = minY + Math.random() * Math.max(0, maxY - minY);
 
-        // Phase 3 can choose any safe point on the available screen area.
-        const burst = Math.random() < (phaseThree ? 0.52 : (phaseTwo ? 0.38 : 0.22));
-        let safeX;
-        let safeY;
-
-        if (phaseThree) {
-          const margin = 12;
-          const minX = left + margin;
-          const minY = top + margin;
-          const maxX = Math.max(minX, maxLeft - margin);
-          const maxY = Math.max(minY, maxTop - margin);
-          safeX = minX + Math.random() * Math.max(0, maxX - minX);
-          safeY = minY + Math.random() * Math.max(0, maxY - minY);
-        } else {
-          const rangeX = phaseTwo ? (burst ? 330 : 245) : (burst ? 225 : 165);
-          const rangeY = phaseTwo ? (burst ? 230 : 170) : (burst ? 155 : 115);
-          safeX = clamp(homeX + (Math.random() * 2 - 1) * rangeX, left, Math.max(left, maxLeft));
-          safeY = clamp(homeY + (Math.random() * 2 - 1) * rangeY, top, Math.max(top, maxTop));
-        }
-
-        const duration = phaseThree ? 60 + Math.random() * 45
-          : (phaseTwo ? 145 + Math.random() * 115 : 175 + Math.random() * 115);
-        const curve = (Math.random() * 2 - 1) * (phaseThree ? (burst ? 150 : 110)
-          : (phaseTwo ? (burst ? 95 : 72) : (burst ? 62 : 42)));
+        const duration = 60 + Math.random() * 45;
+        const curve = (Math.random() * 2 - 1) * (burst ? 150 : 110);
 
         clearTimeout(returnTimer);
         animateWindowTo(safeX, safeY, duration, curve);
 
-        if (phaseTwo) {
-          const tilt = (Math.random() * 2 - 1) * (phaseThree ? (burst ? 18 : 13) : (burst ? 11 : 8));
-          const scale = phaseThree ? 1.07 + Math.random() * (burst ? 0.18 : 0.12)
-            : 1.045 + Math.random() * (burst ? 0.13 : 0.085);
-          const shiftX = (Math.random() * 2 - 1) * (phaseThree ? (burst ? 34 : 24) : (burst ? 22 : 14));
-          const shiftY = (Math.random() * 2 - 1) * (phaseThree ? (burst ? 28 : 19) : (burst ? 18 : 12));
-          video.style.transform = `translate3d(${shiftX}px,${shiftY}px,0) rotate(${tilt}deg) scale(${scale})`;
-          video.style.filter = `saturate(${1.15 + Math.random() * (phaseThree ? 1.6 : 1.2)}) contrast(${1.03 + Math.random() * (phaseThree ? .34 : .24)})`;
-        }
+        const tilt = (Math.random() * 2 - 1) * (burst ? 18 : 13);
+        const scale = 1.07 + Math.random() * (burst ? 0.18 : 0.12);
+        const shiftX = (Math.random() * 2 - 1) * (burst ? 34 : 24);
+        const shiftY = (Math.random() * 2 - 1) * (burst ? 28 : 19);
+        video.style.transform = `translate3d(${shiftX}px,${shiftY}px,0) rotate(${tilt}deg) scale(${scale})`;
+        video.style.filter = `saturate(${1.15 + Math.random() * 1.6}) contrast(${1.03 + Math.random() * .34})`;
 
         // If the beat stops, glide back to the starting position instead of staying offset.
         returnTimer = setTimeout(() => returnWindowHome(), 520);
@@ -288,6 +271,8 @@
 
           homeX = window.screenX;
           homeY = window.screenY;
+          video.playbackRate = 1.0;
+          if (masterGain && audioContext) masterGain.gain.setTargetAtTime(1.35, audioContext.currentTime, 0.2);
           await video.play();
 
           startScreen.remove();
@@ -303,6 +288,7 @@
             cancelAnimationFrame(frameRequest);
             frameRequest = requestAnimationFrame(analyseFrame);
           }
+          chaosTimer = setTimeout(phaseThreePulse, 80);
         } catch (err) {
           showError(err && err.message ? err.message : mediaErrorMessage());
         }
@@ -323,6 +309,7 @@
         document.body.classList.add("phase-three");
         video.style.transition = "transform 90ms cubic-bezier(.15,.8,.2,1), filter 180ms ease";
         video.playbackRate = 1.25;
+        clearTimeout(chaosTimer);
         if (masterGain && audioContext) {
           masterGain.gain.setTargetAtTime(1.35, audioContext.currentTime, 0.2);
         }
@@ -362,7 +349,7 @@
       });
 
       function phaseThreePulse() {
-        if (!moving || !phaseThree || video.paused) return;
+        if (!moving || video.paused || phaseFour) return;
         jumpWindow(performance.now(), true);
         // Keep movement lively between musical peaks too; the X key remains untouched.
         chaosTimer = setTimeout(phaseThreePulse, 80 + Math.random() * 60);
@@ -382,6 +369,7 @@
           lastJumpAt = 0;
 
           try {
+            video.playbackRate = 1.10;
             await video.play();
             moving = true;
             if (analyser) {
@@ -389,6 +377,7 @@
               frameRequest = requestAnimationFrame(analyseFrame);
             }
             jumpWindow(performance.now(), true);
+            chaosTimer = setTimeout(phaseThreePulse, 80);
           } catch (err) {
             moving = false;
             console.warn("No se pudo iniciar la fase dos:", err);
