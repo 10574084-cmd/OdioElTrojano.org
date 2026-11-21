@@ -423,23 +423,6 @@
         }
       });
 
-      window.addEventListener("keydown", event => {
-        if (event.key === "Escape" && moving) {
-          moving = false;
-          cancelAnimationFrame(frameRequest);
-          clearTimeout(chaosTimer);
-          if (phaseFour) {
-            finalScreen.classList.add("show");
-            return;
-          }
-          video.playbackRate = 1;
-          if (masterGain && audioContext) {
-            masterGain.gain.setTargetAtTime(1, audioContext.currentTime, 0.15);
-          }
-          returnWindowHome();
-        }
-      });
-
       window.addEventListener("beforeunload", () => {
         moving = false;
         cancelAnimationFrame(frameRequest);
