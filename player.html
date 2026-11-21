@@ -51,6 +51,7 @@
       let audioContext = null;
       let analyser = null;
       let sourceNode = null;
+      let masterGain = null;
       let frequencyData = null;
       let frameRequest = 0;
       let moving = false;
@@ -122,8 +123,11 @@
         analyser.smoothingTimeConstant = 0.25;
         frequencyData = new Uint8Array(analyser.frequencyBinCount);
         sourceNode = audioContext.createMediaElementSource(video);
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = 1;
         sourceNode.connect(analyser);
-        analyser.connect(audioContext.destination);
+        analyser.connect(masterGain);
+        masterGain.connect(audioContext.destination);
       }
 
       function animateWindowTo(targetX, targetY, duration, curveAmount = 0) {
@@ -168,7 +172,7 @@
 
       function jumpWindow(now, force = false) {
         // Beat-triggered random destinations create a lively but continuous drift.
-        const minimumBeatGap = phaseThree ? 65 : (phaseTwo ? 112 : 145);
+        const minimumBeatGap = phaseThree ? 80 : (phaseTwo ? 112 : 145);
         if (!force && now - lastJumpAt < minimumBeatGap) return;
         lastJumpAt = now;
 
@@ -197,7 +201,7 @@
           safeY = clamp(homeY + (Math.random() * 2 - 1) * rangeY, top, Math.max(top, maxTop));
         }
 
-        const duration = phaseThree ? 85 + Math.random() * 65
+        const duration = phaseThree ? 60 + Math.random() * 45
           : (phaseTwo ? 145 + Math.random() * 115 : 175 + Math.random() * 115);
         const curve = (Math.random() * 2 - 1) * (phaseThree ? (burst ? 150 : 110)
           : (phaseTwo ? (burst ? 95 : 72) : (burst ? 62 : 42)));
@@ -276,8 +280,8 @@
           startScreen.remove();
           document.body.classList.add("started");
 
+          moving = true;
           if (analyser) {
-            moving = true;
             averageBass = 0;
             previousBass = 0;
             lastBeatAt = 0;
@@ -302,7 +306,11 @@
         phaseThree = true;
         document.title = "ODIO EL TROYANO - FASE 3";
         document.body.classList.add("phase-three");
-        video.style.transition = "transform 130ms cubic-bezier(.15,.8,.2,1), filter 250ms ease";
+        video.style.transition = "transform 90ms cubic-bezier(.15,.8,.2,1), filter 180ms ease";
+        video.playbackRate = 1.25;
+        if (masterGain && audioContext) {
+          masterGain.gain.setTargetAtTime(1.35, audioContext.currentTime, 0.2);
+        }
         lastBeatAt = 0;
         lastJumpAt = 0;
         chaosTimer = setTimeout(phaseThreePulse, 80);
@@ -312,7 +320,7 @@
         if (!moving || !phaseThree || video.paused) return;
         jumpWindow(performance.now(), true);
         // Keep movement lively between musical peaks too; the X key remains untouched.
-        chaosTimer = setTimeout(phaseThreePulse, 105 + Math.random() * 95);
+        chaosTimer = setTimeout(phaseThreePulse, 80 + Math.random() * 60);
       }
 
       video.addEventListener("timeupdate", () => {
@@ -347,8 +355,10 @@
         try {
           await video.play();
           moving = true;
-          cancelAnimationFrame(frameRequest);
-          frameRequest = requestAnimationFrame(analyseFrame);
+          if (analyser) {
+            cancelAnimationFrame(frameRequest);
+            frameRequest = requestAnimationFrame(analyseFrame);
+          }
           jumpWindow(performance.now(), true);
         } catch (err) {
           moving = false;
@@ -361,6 +371,10 @@
           moving = false;
           cancelAnimationFrame(frameRequest);
           clearTimeout(chaosTimer);
+          video.playbackRate = 1;
+          if (masterGain && audioContext) {
+            masterGain.gain.setTargetAtTime(1, audioContext.currentTime, 0.15);
+          }
           returnWindowHome();
         }
       });
