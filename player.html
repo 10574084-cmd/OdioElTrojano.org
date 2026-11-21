@@ -11,6 +11,7 @@
     #video{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain;background:#050308;display:block;will-change:transform,filter;transition:transform 240ms cubic-bezier(.2,.75,.25,1),filter 420ms ease}
     #phaseAmbience{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;background:radial-gradient(ellipse at 50% 50%,#777 0%,#333 58%,#08080b 100%);transition:opacity 1200ms ease}
     body.phase-two #phaseAmbience{opacity:.2;animation:ambientPulse 7s ease-in-out infinite alternate}
+    body.phase-three #phaseAmbience{opacity:.27;animation:ambientPulse 2.8s ease-in-out infinite alternate}
     @keyframes ambientPulse{from{opacity:.10}to{opacity:.25}}
     #startScreen{position:fixed;inset:0;z-index:5;display:grid;place-items:center;padding:24px;text-align:center;background:radial-gradient(circle at 50% 35%,#53164c 0,#1a0b26 55%,#050308 100%)}
     .panel{width:min(520px,100%);padding:clamp(24px,6vw,48px);border:2px solid #ff4f9a99;border-radius:26px;background:#110d1df2;box-shadow:0 0 55px #ff4f9a44}
@@ -60,6 +61,10 @@
       let returnTimer = 0;
       let movementFrame = 0;
       let phaseTwo = false;
+      let phaseThree = false;
+      let phaseTwoLoops = 0;
+      let lastVideoTime = 0;
+      let chaosTimer = 0;
       let homeX = window.screenX;
       let homeY = window.screenY;
 
@@ -163,7 +168,7 @@
 
       function jumpWindow(now, force = false) {
         // Beat-triggered random destinations create a lively but continuous drift.
-        const minimumBeatGap = phaseTwo ? 112 : 145;
+        const minimumBeatGap = phaseThree ? 65 : (phaseTwo ? 112 : 145);
         if (!force && now - lastJumpAt < minimumBeatGap) return;
         lastJumpAt = now;
 
@@ -172,28 +177,42 @@
         const maxLeft = left + screen.availWidth - window.outerWidth;
         const maxTop = top + screen.availHeight - window.outerHeight;
 
-        // Most jumps are medium-sized; occasional larger ones make the pattern less predictable.
-        const burst = Math.random() < (phaseTwo ? 0.38 : 0.22);
-        const rangeX = phaseTwo ? (burst ? 330 : 245) : (burst ? 225 : 165);
-        const rangeY = phaseTwo ? (burst ? 230 : 170) : (burst ? 155 : 115);
-        const offsetX = (Math.random() * 2 - 1) * rangeX;
-        const offsetY = (Math.random() * 2 - 1) * rangeY;
+        // Phase 3 can choose any safe point on the available screen area.
+        const burst = Math.random() < (phaseThree ? 0.52 : (phaseTwo ? 0.38 : 0.22));
+        let safeX;
+        let safeY;
 
-        const safeX = clamp(homeX + offsetX, left, Math.max(left, maxLeft));
-        const safeY = clamp(homeY + offsetY, top, Math.max(top, maxTop));
-        const duration = phaseTwo ? 145 + Math.random() * 115 : 175 + Math.random() * 115;
-        const curve = (Math.random() * 2 - 1) * (phaseTwo ? (burst ? 95 : 72) : (burst ? 62 : 42));
+        if (phaseThree) {
+          const margin = 12;
+          const minX = left + margin;
+          const minY = top + margin;
+          const maxX = Math.max(minX, maxLeft - margin);
+          const maxY = Math.max(minY, maxTop - margin);
+          safeX = minX + Math.random() * Math.max(0, maxX - minX);
+          safeY = minY + Math.random() * Math.max(0, maxY - minY);
+        } else {
+          const rangeX = phaseTwo ? (burst ? 330 : 245) : (burst ? 225 : 165);
+          const rangeY = phaseTwo ? (burst ? 230 : 170) : (burst ? 155 : 115);
+          safeX = clamp(homeX + (Math.random() * 2 - 1) * rangeX, left, Math.max(left, maxLeft));
+          safeY = clamp(homeY + (Math.random() * 2 - 1) * rangeY, top, Math.max(top, maxTop));
+        }
+
+        const duration = phaseThree ? 85 + Math.random() * 65
+          : (phaseTwo ? 145 + Math.random() * 115 : 175 + Math.random() * 115);
+        const curve = (Math.random() * 2 - 1) * (phaseThree ? (burst ? 150 : 110)
+          : (phaseTwo ? (burst ? 95 : 72) : (burst ? 62 : 42)));
 
         clearTimeout(returnTimer);
         animateWindowTo(safeX, safeY, duration, curve);
 
         if (phaseTwo) {
-          const tilt = (Math.random() * 2 - 1) * (burst ? 11 : 8);
-          const scale = 1.045 + Math.random() * (burst ? 0.13 : 0.085);
-          const shiftX = (Math.random() * 2 - 1) * (burst ? 22 : 14);
-          const shiftY = (Math.random() * 2 - 1) * (burst ? 18 : 12);
+          const tilt = (Math.random() * 2 - 1) * (phaseThree ? (burst ? 18 : 13) : (burst ? 11 : 8));
+          const scale = phaseThree ? 1.07 + Math.random() * (burst ? 0.18 : 0.12)
+            : 1.045 + Math.random() * (burst ? 0.13 : 0.085);
+          const shiftX = (Math.random() * 2 - 1) * (phaseThree ? (burst ? 34 : 24) : (burst ? 22 : 14));
+          const shiftY = (Math.random() * 2 - 1) * (phaseThree ? (burst ? 28 : 19) : (burst ? 18 : 12));
           video.style.transform = `translate3d(${shiftX}px,${shiftY}px,0) rotate(${tilt}deg) scale(${scale})`;
-          video.style.filter = `saturate(${1.15 + Math.random() * 1.2}) contrast(${1.03 + Math.random() * 0.24})`;
+          video.style.filter = `saturate(${1.15 + Math.random() * (phaseThree ? 1.6 : 1.2)}) contrast(${1.03 + Math.random() * (phaseThree ? .34 : .24)})`;
         }
 
         // If the beat stops, glide back to the starting position instead of staying offset.
@@ -278,14 +297,48 @@
 
       startButton.addEventListener("click", startVideo);
 
+      function enterPhaseThree() {
+        if (phaseThree) return;
+        phaseThree = true;
+        document.title = "ODIO EL TROYANO - FASE 3";
+        document.body.classList.add("phase-three");
+        video.style.transition = "transform 130ms cubic-bezier(.15,.8,.2,1), filter 250ms ease";
+        lastBeatAt = 0;
+        lastJumpAt = 0;
+        chaosTimer = setTimeout(phaseThreePulse, 80);
+      }
+
+      function phaseThreePulse() {
+        if (!moving || !phaseThree || video.paused) return;
+        jumpWindow(performance.now(), true);
+        // Keep movement lively between musical peaks too; the X key remains untouched.
+        chaosTimer = setTimeout(phaseThreePulse, 105 + Math.random() * 95);
+      }
+
+      video.addEventListener("timeupdate", () => {
+        if (!phaseTwo || phaseThree) {
+          lastVideoTime = video.currentTime;
+          return;
+        }
+
+        // With loop enabled, time jumps back near zero instead of firing "ended".
+        if (lastVideoTime > 1 && video.currentTime + 0.6 < lastVideoTime) {
+          phaseTwoLoops++;
+          if (phaseTwoLoops >= 2) enterPhaseThree();
+        }
+        lastVideoTime = video.currentTime;
+      });
+
       video.addEventListener("ended", async () => {
-        // Phase two lives in this same player.html document and reuses this video element.
+        // Phase two begins in this same player.html document.
         if (phaseTwo) return;
         phaseTwo = true;
         document.title = "ODIO EL TROYANO - FASE 2";
         document.body.classList.add("phase-two");
         video.loop = true;
         video.currentTime = 0;
+        lastVideoTime = 0;
+        phaseTwoLoops = 0;
         averageBass = 0;
         previousBass = 0;
         lastBeatAt = 0;
@@ -307,6 +360,7 @@
         if (event.key === "Escape" && moving) {
           moving = false;
           cancelAnimationFrame(frameRequest);
+          clearTimeout(chaosTimer);
           returnWindowHome();
         }
       });
@@ -316,6 +370,7 @@
         cancelAnimationFrame(frameRequest);
         cancelAnimationFrame(movementFrame);
         clearTimeout(returnTimer);
+        clearTimeout(chaosTimer);
         try { if (audioContext) audioContext.close(); } catch (_) {}
       });
     })();
