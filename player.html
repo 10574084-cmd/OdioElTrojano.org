@@ -14,14 +14,10 @@
     body.phase-two #phaseAmbience{opacity:.2;animation:ambientPulse 7s ease-in-out infinite alternate}
     body.phase-three #phaseAmbience{opacity:.27;animation:ambientPulse 2.8s ease-in-out infinite alternate}
     @keyframes ambientPulse{from{opacity:.10}to{opacity:.25}}
-    #startScreen{position:fixed;inset:0;z-index:5;display:grid;place-items:center;padding:24px;text-align:center;background:radial-gradient(circle at 50% 35%,#53164c 0,#1a0b26 55%,#050308 100%)}
-    .panel{width:min(520px,100%);padding:clamp(24px,6vw,48px);border:2px solid #ff4f9a99;border-radius:26px;background:#110d1df2;box-shadow:0 0 55px #ff4f9a44}
-    h1{font-size:clamp(32px,8vw,64px);line-height:.93;margin:0 0 16px;color:#d8ff36;text-shadow:4px 4px 0 #d62981;letter-spacing:-2px}
-    p{color:#eadced;line-height:1.5;font-size:14px}
-    #startButton{border:0;border-radius:999px;padding:16px 30px;font-size:18px;font-weight:900;background:#d8ff36;color:#171323;cursor:pointer;box-shadow:0 5px 0 #809b13}
-    #startButton:active{transform:translateY(3px);box-shadow:0 2px 0 #809b13}
+    #startScreen{position:fixed;inset:0;z-index:5;display:grid;place-items:center;background:#050308}
+    #startButton{border:0;padding:0;background:none;color:#fff;font:16px Arial,Helvetica,sans-serif;text-decoration:none;cursor:pointer}
     #startButton:disabled{opacity:.7;cursor:wait}
-    #error{display:none;color:#ffd36b;font-size:13px;margin-top:14px;overflow-wrap:anywhere}
+    #error{display:none;color:#fff;font-size:13px;margin-top:14px;overflow-wrap:anywhere}
 
     #finalScreen{position:fixed;inset:0;z-index:20;display:none;background:#f1f3f4;color:#202124;font-family:Arial,Helvetica,sans-serif}
     #finalScreen.show{display:block}
@@ -51,12 +47,8 @@
   </div>
 
   <section id="startScreen">
-    <div class="panel">
-      <h1>ODIO EL<br>TROYANO</h1>
-      <p>Ready? The video will fill this window and the window will try to bounce with the beat.</p>
-      <button id="startButton" type="button">▶ START THE VIDEO</button>
-      <p id="error" role="status" aria-live="polite"></p>
-    </div>
+    <button id="startButton" type="button">ODIO EL CHOCOLATE</button>
+    <p id="error" role="status" aria-live="polite"></p>
   </section>
 
   <script>
