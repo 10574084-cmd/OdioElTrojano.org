@@ -63,8 +63,6 @@
       let movementFrame = 0;
       let phaseTwo = false;
       let phaseThree = false;
-      let phaseTwoLoops = 0;
-      let lastVideoTime = 0;
       let chaosTimer = 0;
       let homeX = window.screenX;
       let homeY = window.screenY;
@@ -323,46 +321,50 @@
         chaosTimer = setTimeout(phaseThreePulse, 80 + Math.random() * 60);
       }
 
-      video.addEventListener("timeupdate", () => {
-        if (!phaseTwo || phaseThree) {
-          lastVideoTime = video.currentTime;
+      video.addEventListener("ended", async () => {
+        // The first full playback ends Phase 1 and starts Phase 2.
+        if (!phaseTwo) {
+          phaseTwo = true;
+          document.title = "ODIO EL TROYANO - FASE 2";
+          document.body.classList.add("phase-two");
+          video.loop = false;
+          video.currentTime = 0;
+          averageBass = 0;
+          previousBass = 0;
+          lastBeatAt = 0;
+          lastJumpAt = 0;
+
+          try {
+            await video.play();
+            moving = true;
+            if (analyser) {
+              cancelAnimationFrame(frameRequest);
+              frameRequest = requestAnimationFrame(analyseFrame);
+            }
+            jumpWindow(performance.now(), true);
+          } catch (err) {
+            moving = false;
+            console.warn("No se pudo iniciar la fase dos:", err);
+          }
           return;
         }
 
-        // With loop enabled, time jumps back near zero instead of firing "ended".
-        if (lastVideoTime > 1 && video.currentTime + 0.6 < lastVideoTime) {
-          phaseTwoLoops++;
-          if (phaseTwoLoops >= 2) enterPhaseThree();
-        }
-        lastVideoTime = video.currentTime;
-      });
-
-      video.addEventListener("ended", async () => {
-        // Phase two begins in this same player.html document.
-        if (phaseTwo) return;
-        phaseTwo = true;
-        document.title = "ODIO EL TROYANO - FASE 2";
-        document.body.classList.add("phase-two");
-        video.loop = true;
-        video.currentTime = 0;
-        lastVideoTime = 0;
-        phaseTwoLoops = 0;
-        averageBass = 0;
-        previousBass = 0;
-        lastBeatAt = 0;
-        lastJumpAt = 0;
-
-        try {
-          await video.play();
-          moving = true;
-          if (analyser) {
-            cancelAnimationFrame(frameRequest);
-            frameRequest = requestAnimationFrame(analyseFrame);
+        // The second full playback ends Phase 2 and starts Phase 3 immediately.
+        if (phaseTwo && !phaseThree) {
+          enterPhaseThree();
+          video.loop = true;
+          video.currentTime = 0;
+          try {
+            await video.play();
+            moving = true;
+            if (analyser) {
+              cancelAnimationFrame(frameRequest);
+              frameRequest = requestAnimationFrame(analyseFrame);
+            }
+          } catch (err) {
+            moving = false;
+            console.warn("No se pudo iniciar la fase tres:", err);
           }
-          jumpWindow(performance.now(), true);
-        } catch (err) {
-          moving = false;
-          console.warn("No se pudo reiniciar el video para la fase dos:", err);
         }
       });
 
