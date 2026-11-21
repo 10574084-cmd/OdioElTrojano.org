@@ -21,6 +21,13 @@
     #startButton:active{transform:translateY(3px);box-shadow:0 2px 0 #809b13}
     #startButton:disabled{opacity:.7;cursor:wait}
     #error{display:none;color:#ffd36b;font-size:13px;margin-top:14px;overflow-wrap:anywhere}
+
+    #finalScreen{position:fixed;inset:0;z-index:20;display:none;background:#000}
+    #finalScreen.show{display:block}
+    #finalImage{display:block;width:100vw;height:100vh;object-fit:fill}
+    #finalMessage{position:absolute;inset:0;display:none;place-items:center;background:#000;color:#fff;font:24px Arial,Helvetica,sans-serif}
+    #finalScreen.message #finalImage{display:none}
+    #finalScreen.message #finalMessage{display:grid}
     body.started{cursor:none}
     body.started #video{cursor:none}
   </style>
@@ -30,6 +37,7 @@
     <source src="media/odio-el-trojano.mp4" type="video/mp4">
   </video>
   <div id="phaseAmbience" aria-hidden="true"></div>
+  <div id="finalScreen" aria-live="polite"><img id="finalImage" alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAtAAAAGQAgMAAAD6ib/+AAAACVBMVEX///+oqKgAAKibm/S5AAALm0lEQVR42u3dvYrcWBbA8X9fbBCVTCeGjYRwsIjKNt4Jep5gHdhCbGBERX4CISYQB0WiH2DDosKimWD3CcaBJ99ICAfmomgZJ55ECDxcbyCpvtv9VbZrmHMTq6tUVT9d3Xt1dOp0++yKP14zKFrRila0ohWtaEUrWtGKVrSiFa1oRSta0YpWtKIVrWhFK1rRila0ohWtaEUrWtGKVrSiFa1oRSta0YpWtKIVrWhFK1rRila0ohWtaEUrWtGKVrSiFa1oRSta0YpWtKIVrWhFK1rRila0ohWtaEUrWtGKVrSiFa1oRSta0YpWtKIVrWhFK1rRila0ohWtaEUrWtGKVrSiFa1oRSta0YpWtKIVrWhFK1rRila0ohWtaEUrWtGKVrSiFa1oRSta0YpWtKIVrWhFK1rRila0ohWt6Nu2/wMdvAHf+6NLLQAAAABJRU5ErkJggg=="><div id="finalMessage">jaja, te asustaste</div></div>
 
   <section id="startScreen">
     <div class="panel">
@@ -46,6 +54,7 @@
       const startScreen = document.getElementById("startScreen");
       const startButton = document.getElementById("startButton");
       const error = document.getElementById("error");
+      const finalScreen = document.getElementById("finalScreen");
       const videoUrl = new URL("media/odio-el-trojano.mp4", document.baseURI).href;
 
       let audioContext = null;
@@ -63,6 +72,10 @@
       let movementFrame = 0;
       let phaseTwo = false;
       let phaseThree = false;
+      let phaseFour = false;
+      let phaseThreeLoops = 0;
+      let lastVideoTime = 0;
+      let finalTimer = 0;
       let chaosTimer = 0;
       let homeX = window.screenX;
       let homeY = window.screenY;
@@ -302,6 +315,8 @@
       function enterPhaseThree() {
         if (phaseThree) return;
         phaseThree = true;
+        phaseThreeLoops = 0;
+        lastVideoTime = 0;
         document.title = "ODIO EL TROYANO - FASE 3";
         document.body.classList.add("phase-three");
         video.style.transition = "transform 90ms cubic-bezier(.15,.8,.2,1), filter 180ms ease";
@@ -313,6 +328,36 @@
         lastJumpAt = 0;
         chaosTimer = setTimeout(phaseThreePulse, 80);
       }
+
+      function enterPhaseFour() {
+        if (phaseFour) return;
+        phaseFour = true;
+        moving = false;
+        cancelAnimationFrame(frameRequest);
+        cancelAnimationFrame(movementFrame);
+        clearTimeout(returnTimer);
+        clearTimeout(chaosTimer);
+        document.title = "ODIO EL TROYANO - FINAL";
+        video.pause();
+        video.playbackRate = 1;
+        if (masterGain && audioContext) masterGain.gain.setTargetAtTime(1, audioContext.currentTime, 0.12);
+        video.style.transition = "none";
+        video.style.transform = "none";
+        video.style.filter = "none";
+        document.body.classList.remove("phase-two","phase-three");
+        finalScreen.classList.add("show");
+        finalTimer = setTimeout(() => finalScreen.classList.add("message"), 2600);
+      }
+
+      video.addEventListener("timeupdate", () => {
+        if (!phaseThree || phaseFour || !video.loop) return;
+        const now = video.currentTime;
+        if (lastVideoTime > 1 && now + 0.75 < lastVideoTime) {
+          phaseThreeLoops++;
+          if (phaseThreeLoops >= 2) enterPhaseFour();
+        }
+        lastVideoTime = now;
+      });
 
       function phaseThreePulse() {
         if (!moving || !phaseThree || video.paused) return;
@@ -373,6 +418,11 @@
           moving = false;
           cancelAnimationFrame(frameRequest);
           clearTimeout(chaosTimer);
+          clearTimeout(finalTimer);
+          if (phaseFour) {
+            finalScreen.classList.add("show","message");
+            return;
+          }
           video.playbackRate = 1;
           if (masterGain && audioContext) {
             masterGain.gain.setTargetAtTime(1, audioContext.currentTime, 0.15);
@@ -387,6 +437,7 @@
         cancelAnimationFrame(movementFrame);
         clearTimeout(returnTimer);
         clearTimeout(chaosTimer);
+        clearTimeout(finalTimer);
         try { if (audioContext) audioContext.close(); } catch (_) {}
       });
     })();
